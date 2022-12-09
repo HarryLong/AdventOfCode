@@ -1,14 +1,49 @@
 import copy
+from email import header
 import os
 import sys
+
+class Knot:
+    def __init__(self, parent):
+        self.parent = parent
+        self.previousPos = [0,0]
+        self.pos = [0,0]
+        self.visitedPositions = set()
+        self.visitedPositions.add((0,0))
+
+    def isHead(self):
+        return self.parent == None
+    
+    def move(self, dir: str):
+        self.previousPos = copy.deepcopy(self.pos)
+        if dir == 'L':
+            self.pos[0] -= 1
+        elif dir == 'R':
+            self.pos[0] += 1
+        elif dir == 'U':
+            self.pos[1] += 1
+        elif dir == 'D':
+            self.pos[1] -= 1
+        else:
+            assert False, f"Unknown direction{dir}"
+    
+    def adapt_from_parent(self):
+        if(self.parent == None):
+            return
+        _distance = [self.parent.pos[0] - self.pos[0], self.parent.pos[1] - self.pos[1]]
+        _squareDistance = [pow(_distance[0],2), pow(_distance[1],2)]
+        if _squareDistance[0] > 1 or _squareDistance[1] > 1:
+            self.pos = copy.deepcopy(self.parent.previousPos)
+            self.visitedPositions.add((self.pos[0], self.pos[1]))
+
 
 def solve_part_1():
     __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
     _input = os.path.join(__location__, 'input.txt')
 
-    _currentHeadPos = [0,0]
-    _previousHeadPos = [-1,-1]
-    _currentTailPos = [0,0]
+    _head = Knot(parent=None)
+    _tail = Knot(parent=_head)
+
     _visitedPositions = set()
     _visitedPositions.add((0,0))
     with open(_input) as f:
@@ -18,26 +53,10 @@ def solve_part_1():
             _amount = int(_amount)
             while _amount > 0:
                 _amount -= 1
-                _previousHeadPos = copy.deepcopy(_currentHeadPos)
-                if _direction == 'L':
-                    _currentHeadPos[0] -= 1
-                elif _direction == 'R':
-                    _currentHeadPos[0] += 1
-                elif _direction == 'U':
-                    _currentHeadPos[1] += 1
-                elif _direction == 'D':
-                    _currentHeadPos[1] -= 1
-                else:
-                    assert False, f"Unknown direction{_direction}"
-                # Adapt the tail position
-                _distance = [_currentHeadPos[0] - _currentTailPos[0], _currentHeadPos[1] - _currentTailPos[1]]
-                _squareDistance = [pow(_distance[0],2), pow(_distance[1],2)]
-                if _squareDistance[0] > 1 or _squareDistance[1] > 1:
-                    _currentTailPos = copy.deepcopy(_previousHeadPos)
-                    _visitedPositions.add((_currentTailPos[0], _currentTailPos[1]))
-
+                _head.move(_direction)
+                _tail.adapt_from_parent()
                 
-    print(f"Number of visited positions: {len(_visitedPositions)}")
+    print(f"Number of visited positions: {len(_tail.visitedPositions)}")
 
 if __name__ == '__main__':
     # solve_part_1()
