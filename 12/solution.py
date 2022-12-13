@@ -1,6 +1,7 @@
 import copy
 from itertools import repeat
 import os
+from re import X
 import sys
 from threading import Thread
 import cProfile
@@ -8,46 +9,46 @@ import cProfile
 _START = 'S'
 _DESTINATION = 'E'
 
-class Path:
-    def __init__(self):
-        self.path = []
-        self.reached_destination = False
-
-    def add(self, position: list[int]):
-        self.path.append([position[0], position[1]])
-    
-    def steps(self):
-        return len(self.path) - 1 # Start position isn't a move
+class Node:
+    def __init__(self, height: str, destinationNode: bool, x: int, y: int):
+        self.x = x
+        self.y = y
+        self.height = height
+        self.distance = sys.maxsize
+        self.destinationNode = destinationNode
+        self.visited = False
 
 class PathFinder:
     def __init__(self, heightmap: list[str]):
-        self.currentMin = sys.maxsize
+        self.unvisited_nodes = []
+        self.visited_nodes = []
         self.heightmap = []
-        self.start = [-1,-1]
-        self.destination = [-1,-1]
-        self.deadends = set()
         _row = 0
         for _line in heightmap:
             self.heightmap.append([])
             _column = 0
             for _char in _line.strip():
-                if _char == _START:
-                    self.start = [_row, _column]
-                if _char == _DESTINATION:
-                    self.destination = [_row, _column]
-                self.heightmap[-1].append(_char)
+                _startNode = _char == _START
+                _destinationNode = _char == _DESTINATION
+                _node = Node(_char, destinationNode=_destinationNode, x=_column, y=_row)
+                self.heightmap[-1].append(_node)
+                if _startNode:
+                    _node.distance = 0
+                self.unvisited_nodes.append(_node)
                 _column += 1
             _row += 1
-        assert self.start[0] != -1 and self.destination[0] != -1, "Should not happen"
 
-    def inRange(self, nextPosition: list[int]):
-        _xInRange = (0 <= nextPosition[1] < len(self.heightmap[0]))
-        _yInRange = (0 <= nextPosition[0] < len(self.heightmap))
+    def inRange(self, position: list[int]):
+        _xInRange = (0 <= position[0] < len(self.heightmap[0]))
+        _yInRange = (0 <= position[1] < len(self.heightmap))
         return _xInRange and _yInRange
 
+    def getNode(self, position: list[int]):
+        return self.heightmap[position[1]][position[0]]   
+
     def getHeightDiff(self, currentPosition: list[int], nextPosition: list[int]):
-        _currentHeight = self.heightmap[currentPosition[0]][currentPosition[1]]        
-        _nextHeight = self.heightmap[nextPosition[0]][nextPosition[1]]
+        _currentHeight = self.getNode(currentPosition).height        
+        _nextHeight = self.getNode(nextPosition).height 
         if _currentHeight == _START:
             _currentHeight = 'a'
         if _nextHeight == _DESTINATION:
@@ -60,64 +61,52 @@ class PathFinder:
         _canExplore = _heightDiff <= 1
         return _canExplore
 
-    def explore(self, path: Path):
-        # print(f"Checking path: {path.path}")
+    def iterate(self):
+        self.unvisited_nodes = sorted(self.unvisited_nodes, reverse = True, key=lambda x: x.distance) 
+        _currentNode = self.unvisited_nodes.pop()
 
-        _lastPosition = path.path[-1]
-        _height = self.heightmap[_lastPosition[0]][_lastPosition[1]]
-        # print(f"Current height: {_height}")
-        if _lastPosition == self.destination:
-            path.reached_destination = True
-            # print(f"Reached destination in {path.steps()} steps.")
-            self.currentMin = min(path.steps(), self.currentMin)
-            return
-        
-        _currentSteps = path.steps()
-        if _currentSteps > self.currentMin: # give up
-            # print(f"Giving up on path as it is already longer than the current minimum.")
-            return
+        # self.visited_nodes.append(_currentNode)
+        _currentNode.visited = True
 
         _nextPositionsToExplore = []
+        _currentPosition = [_currentNode.x, _currentNode.y]
+        _currentDistance = _currentNode.distance
+        if _currentDistance == sys.maxsize:
+            print(f"No path found!")
+            return sys.maxsize
+            
         #left
-        _nextPosition = [_lastPosition[0], _lastPosition[1]-1]
-        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_lastPosition, nextPosition=_nextPosition):
+        _nextPosition = [_currentPosition[0]-1, _currentPosition[1]]
+        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_currentPosition, nextPosition=_nextPosition):
             _nextPositionsToExplore.append(_nextPosition)
         #right
-        _nextPosition = [_lastPosition[0], _lastPosition[1]+1]
-        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_lastPosition, nextPosition=_nextPosition):
+        _nextPosition = [_currentPosition[0]+1, _currentPosition[1]]
+        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_currentPosition, nextPosition=_nextPosition):
             _nextPositionsToExplore.append(_nextPosition)
         #up
-        _nextPosition = [_lastPosition[0]-1, _lastPosition[1]]
-        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_lastPosition, nextPosition=_nextPosition):
+        _nextPosition = [_currentPosition[0], _currentPosition[1]-1]
+        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_currentPosition, nextPosition=_nextPosition):
             _nextPositionsToExplore.append(_nextPosition)
         #down
-        _nextPosition = [_lastPosition[0]+1, _lastPosition[1]]
-        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_lastPosition, nextPosition=_nextPosition):
+        _nextPosition = [_currentPosition[0], _currentPosition[1]+1]
+        if self.inRange(_nextPosition) and self.canExplore(currentPosition=_currentPosition, nextPosition=_nextPosition):
             _nextPositionsToExplore.append(_nextPosition)
 
-        if len(_nextPositionsToExplore) == 0: # Dead end
-            self.deadends.add((_lastPosition[0], _lastPosition[1]))
-            return
-
-        # order to prioritise climbing
-        _nextPositionsToExplore = sorted(_nextPositionsToExplore, key=lambda x: self.getHeightDiff(_lastPosition, x), reverse=True)
-
-        _currentDepth = len(path.path)
-        # print(f"Depth: {_currentDepth}")
         for _position in _nextPositionsToExplore:
-            path.path = path.path[:_currentDepth] 
-            _deadEnd = (_position[0], _position[1]) in self.deadends
-            _alreadyBeen = _position in path.path
-            if not _deadEnd and not _alreadyBeen:
-                path.add(_position)
-                self.explore(path)
+            _node = self.getNode(_position)
+            if _node.destinationNode :
+                return _currentDistance + 1
+            if not _node.visited:
+                _node.distance = min(_currentDistance+1, _node.distance)
+        
+        return -1
 
     def find_fastest_path(self):
-        _path = Path()
-        _path.add(self.start)
-        self.explore(_path)
-
-        return self.currentMin
+        _currentDistance = self.iterate()
+        while _currentDistance == -1:
+            _currentDistance = self.iterate()
+        
+        print(f"Minimum distance: {_currentDistance}")
 
 def solve_part_1():
     __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -126,8 +115,7 @@ def solve_part_1():
     with open(_input) as f:
         _lines = f.readlines()
         _pathFinder = PathFinder(heightmap=_lines)
-        _fastest = _pathFinder.find_fastest_path()
-        print(f"Fastest path: {_fastest}")    
+        _pathFinder.find_fastest_path()
 
 if __name__ == '__main__':
     # cProfile.run('solve_part_1()')
