@@ -34,6 +34,9 @@ class Packet:
 
         if len(_packet) > 0:
             self.values.append(_packet)
+    
+    def isSmallerThan(self, other):
+        return isSmaller(self, other)
 
 # is packet 1 smaller than packet 2
 def isSmaller(packet1, packet2):
@@ -41,12 +44,12 @@ def isSmaller(packet1, packet2):
     _nElementsPacket2 = len(packet2.values)
     _range = max(_nElementsPacket1, _nElementsPacket2)
     for _i in range(_range):
-        print(f"Comparing {packet1.descriptor} and {packet2.descriptor}")
+        # print(f"Comparing {packet1.descriptor} and {packet2.descriptor}")
         if len(packet2.values) <= _i:
-            print(f"False --> current: {_i} | Packet 1 length: {_nElementsPacket1} | Packet 2 length: {_nElementsPacket2}")
+            # print(f"False --> current: {_i} | Packet 1 length: {_nElementsPacket1} | Packet 2 length: {_nElementsPacket2}")
             return False
         if len(packet1.values) <= _i:
-            print(f"True --> current: {_i} | Packet 1 length: {_nElementsPacket1} | Packet 2 length: {_nElementsPacket2}")
+            # print(f"True --> current: {_i} | Packet 1 length: {_nElementsPacket1} | Packet 2 length: {_nElementsPacket2}")
             return True
         _packet1Value = packet1.values[_i]
         _packet2Value = packet2.values[_i]
@@ -64,11 +67,21 @@ def isSmaller(packet1, packet2):
         else:
             assert type(_packet1Value) is not Packet and type(_packet2Value) is not Packet, "This should never happen"
             if int(_packet1Value) > int(_packet2Value):
-                print(f"False ( {_packet1Value} > {_packet2Value} )")
+                # print(f"False ( {_packet1Value} > {_packet2Value} )")
                 return False
             if int(_packet2Value) > int(_packet1Value):
-                print(f"True ( {_packet2Value} > {_packet1Value} )")
+                # print(f"True ( {_packet2Value} > {_packet1Value} )")
                 return True
+
+def bubbleSort(packets: list[Packet]):
+    _orderChanged = True
+    while(_orderChanged):
+        _orderChanged = False
+        for _packetIdx in range(len(packets)-1):
+            if not packets[_packetIdx].isSmallerThan(packets[_packetIdx+1]):
+                packets[_packetIdx], packets[_packetIdx+1] = packets[_packetIdx+1], packets[_packetIdx]
+                _orderChanged = True
+
 
 def solve_part_1():
     __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -83,9 +96,9 @@ def solve_part_1():
             _packetId += 1
             _packet1 = Packet(_lines[_i].strip())
             _packet2 = Packet(_lines[_i+1].strip())
-            print(f"Packet1: {_packet1.descriptor}")
-            print(f"Packet2: {_packet2.descriptor}")
-            _smaller = isSmaller(_packet1, _packet2)
+            # print(f"Packet1: {_packet1.descriptor}")
+            # print(f"Packet2: {_packet2.descriptor}")
+            _smaller = _packet1.isSmallerThan(_packet2)
             if _smaller == None:
                 assert False, "This should not happen"
             else:
@@ -96,6 +109,33 @@ def solve_part_1():
     print(f"Packets in correct order: {_packetsInCorrectOrder}")
     print(f"Sum of packets in correct order: {_sumOfPacketsInCorrectOrder}")
 
+def solve_part_2():
+    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    _input = os.path.join(__location__, 'input.txt')
+
+    _packets = []
+    with open(_input) as f:
+        _lines = f.readlines()
+        for _i in range(0, len(_lines), 3):
+            _packets.append(Packet(_lines[_i].strip()))
+            _packets.append(Packet(_lines[_i+1].strip()))
+
+    bubbleSort(_packets)
+
+    _packetIndex = 1
+    _dividerPacket1Idx = -1
+    _dividerPacket2Idx = -1
+    for _packet in _packets:
+        if _packet.descriptor == '[[2]]':
+            _dividerPacket1Idx = _packetIndex
+        if _packet.descriptor == '[[6]]':
+            _dividerPacket2Idx = _packetIndex
+            break
+        _packetIndex += 1
+
+    print(f"Decoder key: {_dividerPacket1Idx*_dividerPacket2Idx}")
+
 if __name__ == '__main__':
-    solve_part_1()
+    # solve_part_1()
+    solve_part_2()
     sys.exit(0)
