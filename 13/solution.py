@@ -2,27 +2,22 @@ import copy
 from itertools import repeat
 import os
 from re import X
+import re
 import sys
 from threading import Thread
 import cProfile
 
-
 class PacketValue:
-    def __init__(self, descriptor: str):
-        self.value = descriptor
-        self.isList = descriptor[0] == '['
-
-class Packet:
     def __init__(self, descriptor: str):
         self.elements = []
         _packet = ''
         _openLists = 0
-        for _char in descriptor:
+        for _char in descriptor[1:-1]:
             if _char == ',':
                 if _openLists > 0:
                     _packet += _char
-                elif len(_packet) != 0:
-                    self.elements.append(PacketValue(_packet))
+                elif len(_packet) > 0:
+                    self.elements.append(_packet)
                     _packet = ''
                 continue
             
@@ -36,10 +31,12 @@ class Packet:
             if _char == '[':
                 _openLists += 1            
 
-
         if len(_packet) > 0:
-            self.elements.append(PacketValue(_packet))
-        
+            self.elements.append(_packet)
+
+class Packet:
+    def __init__(self, descriptor: str):
+        self.packetValue = PacketValue(descriptor)    
 
 def compare(packet1: Packet, packet2: Packet):
     return True
@@ -55,8 +52,8 @@ def solve_part_1():
     with open(_input) as f:
         _lines = f.readlines()
         for _i in range(0, len(_lines), 3):
-            _packet1 = Packet(_lines[_i].strip()[1:-1])
-            _packet2 = Packet(_lines[_i+1].strip()[1:-1])
+            _packet1 = Packet(_lines[_i].strip())
+            _packet2 = Packet(_lines[_i+1].strip())
             if compare(_packet1, _packet2):
                 _packetsInCorrectOrder += 1
         
