@@ -4,10 +4,11 @@ import sys
 ROCK = '#'
 AIR = '.'
 RANGE_TO = '->'
+SAND_START_POS_X, SAND_START_POS_Y  = 500, 0
 
 class World:
-    def __init__(self, xmin: int, width: int, height: int,) -> None:
-        self.xmin = xmin
+    def __init__(self, width: int, height: int,) -> None:
+        self.xmin = 0
         self.width = width
         self.height = height
 
@@ -24,17 +25,78 @@ class World:
         _xEnd  = max(xStart, xEnd)
         _yEnd = max(yStart, yEnd)
 
-
-        for _x in range(_xStart, _xEnd+1):
+        if _yStart == _yEnd:
+            for _x in range(_xStart, _xEnd+1):
+                self.world[_yStart][_x] = ROCK
+        else:
             for _y in range(_yStart, _yEnd+1):
-                _worldPosX, _worldPosY = self.toWorld(_x, _y)
-                self.world[_worldPosY][_worldPosX] = ROCK
+                self.world[_y][_xStart] = ROCK
     
+    def addRock(self, xPos:int, yPos: int):
+        self.world[yPos][xPos] = ROCK
+
+    def canGoDown(self, _sandPosX: int, _sandPosY: int):
+        _y = _sandPosY+1
+        if 0 <= _y < self.height:
+            return self.world[_y][_sandPosX] != ROCK
+
+    def canGoDownLeft(self, _sandPosX: int, _sandPosY: int):
+        _x, _y = _sandPosX-1, _sandPosY+1
+        if 0 <= _x < self.width and \
+            0 <= _y < self.height:
+                return self.world[_y][_x] != ROCK
+        return False
+
+    def canGoDownRight(self, _sandPosX: int, _sandPosY: int):
+        _x, _y = _sandPosX+1, _sandPosY+1
+        if 0 <= _x < self.width and \
+            0 <= _y < self.height:
+                return self.world[_y][_x] != ROCK
+        return False
+
+    def singleSimulationIteration(self):
+        _sandPosX, _sandPosY = self.toWorld(SAND_START_POS_X, SAND_START_POS_Y)
+        while True:
+            # It can go down
+            if self.canGoDown(_sandPosX, _sandPosY):
+                _sandPosY += 1
+            elif self.canGoDownLeft(_sandPosX, _sandPosY):
+                _sandPosX -= 1
+                _sandPosY += 1
+            elif self.canGoDownRight(_sandPosX, _sandPosY):
+                _sandPosX += 1
+                _sandPosY += 1
+            else:
+                if _sandPosY == self.height-1:
+                # _sandPosX == 0 or\
+                # _sandPosX == self.width-1:
+                    self.reachedTheAbyss = True
+                else:
+                    self.restedSand += 1 
+                    self.addRock(_sandPosX, _sandPosY)
+                break
+
+    def startSimulation(self):
+        self.printToFile(f"C:\\tmp\\sand\\start.txt")
+        self.reachedTheAbyss = False
+        self.restedSand = 0
+        _iterationCount = 0
+        while not self.reachedTheAbyss:
+            self.singleSimulationIteration()
+            _iterationCount += 1
+            self.printToFile(f"C:\\tmp\\sand\\iteration_{_iterationCount}.txt")
+        print(f"Number of sand that rested: {self.restedSand}")
+
     def print(self):
         _row = 0
         for _level in self.world:
             print(f"{_row} {_level}")
             _row += 1
+    
+    def printToFile(self, name: str):
+        with open(name, 'w') as f:
+            for _level in self.world:
+                f.write(f"{_level}\n")
 
 def parsePosition(pos: str):
     _xy = pos.split(',')
@@ -70,7 +132,7 @@ def solve_part_1():
     __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
     _input = os.path.join(__location__, 'input.txt')
 
-    _world = World(xmin=_xmin, width=_xmax-_xmin+1, height=_ymax+1)
+    _world = World(width=_xmax+1, height=_ymax+1)
     with open(_input) as f:
         for _line in f:
             _xyPairs = _line.split(RANGE_TO)
@@ -80,7 +142,8 @@ def solve_part_1():
                 _world.addRockLine(xStart=_xStart, yStart=_yStart, xEnd=_xEnd, yEnd=_yEnd)
                 _xStart, _yStart = _xEnd, _yEnd
 
-    _world.print()
+    # _world.print()
+    _world.startSimulation()
 
 if __name__ == '__main__':
     solve_part_1()
