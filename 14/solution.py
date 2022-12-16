@@ -16,9 +16,6 @@ class World:
         for _y in range(self.height):
             self.world.append([AIR] * self.width)
 
-    def toWorld(self, posX: int, posY: int):
-        return posX - self.xmin, posY
-
     def addRockLine(self, xStart: int, yStart: int, xEnd: int, yEnd: int):
         _xStart = min(xStart, xEnd)
         _yStart = min(yStart, yEnd)
@@ -55,7 +52,10 @@ class World:
         return False
 
     def singleSimulationIteration(self):
-        _sandPosX, _sandPosY = self.toWorld(SAND_START_POS_X, SAND_START_POS_Y)
+        _sandPosX, _sandPosY = SAND_START_POS_X, SAND_START_POS_Y
+        if self.world[_sandPosY][_sandPosX] == ROCK:
+            self.blocked = True
+            return
         while True:
             # It can go down
             if self.canGoDown(_sandPosX, _sandPosY):
@@ -68,8 +68,6 @@ class World:
                 _sandPosY += 1
             else:
                 if _sandPosY == self.height-1:
-                # _sandPosX == 0 or\
-                # _sandPosX == self.width-1:
                     self.reachedTheAbyss = True
                 else:
                     self.restedSand += 1 
@@ -79,13 +77,14 @@ class World:
     def startSimulation(self):
         self.printToFile(f"C:\\tmp\\sand\\start.txt")
         self.reachedTheAbyss = False
+        self.blocked = False
         self.restedSand = 0
-        _iterationCount = 0
-        while not self.reachedTheAbyss:
+        while not self.reachedTheAbyss and not self.blocked:
             self.singleSimulationIteration()
-            _iterationCount += 1
-            self.printToFile(f"C:\\tmp\\sand\\iteration_{_iterationCount}.txt")
+            # self.printToFile(f"C:\\tmp\\sand\\iteration_{_iterationCount}.txt")
         print(f"Number of sand that rested: {self.restedSand}")
+        print(f"Reached the abyss: {self.reachedTheAbyss}")
+        print(f"Blocked: {self.blocked}")
 
     def print(self):
         _row = 0
@@ -145,7 +144,29 @@ def solve_part_1():
     # _world.print()
     _world.startSimulation()
 
+def solve_part_2():
+    _xmin, _xmax, _ymin, _ymax = findWorldExtremeties()
+    print(f"World : {_xmin, _xmax, _ymin, _ymax}")
+
+    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    _input = os.path.join(__location__, 'input.txt')
+
+    _world = World(width=_xmax*2, height=_ymax+3) # two more units for the 'infinite' floor
+    with open(_input) as f:
+        for _line in f:
+            _xyPairs = _line.split(RANGE_TO)
+            _xStart, _yStart = parsePosition(_xyPairs[0])
+            for _pos in _xyPairs[1:]:
+                _xEnd, _yEnd = parsePosition(_pos)
+                _world.addRockLine(xStart=_xStart, yStart=_yStart, xEnd=_xEnd, yEnd=_yEnd)
+                _xStart, _yStart = _xEnd, _yEnd
+    
+    _world.addRockLine(xStart=0, yStart=_ymax+2, xEnd=_xmax*2-1, yEnd=_ymax+2)
+
+    # _world.print()
+    _world.startSimulation()
+
 if __name__ == '__main__':
-    solve_part_1()
-    # solve_part_2()
+    # solve_part_1()
+    solve_part_2()
     sys.exit(0)
